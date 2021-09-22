@@ -1,0 +1,43 @@
+Here are some test pages that i can test the toy browser against.
+
+- Cern
+They use lots of tags but most aren't supported or defined (including on modern web browsers).
+We need to still get the text from such things (including inside of body).
+
+We also need to support links as those are nested. I do have an idea for that though.
+
+- Simple test
+This is basically just a picture (PNG file with alpha transparency) and some text below.
+My HTML renderer can already render this almost perfectly.
+
+- Acid1
+The infamous CSS test page.
+This will take some time to support properly...
+If you are curious, Netsurf renders it properly.
+I won't even consider acid2 until it gets that right.
+
+- Simple test 2
+This is a harder test that sets the background color via CSS, does some quirks
+that we need to support for proper look and the center tag that we need to support.
+(Might not be trivial to support)
+
+	° Implement text warping (according to the screen width)
+	If text goes outside the screen width, it warps around.
+
+	° Image next to text
+	In our case, the text is at the very bottom of image in terms of height but right next to it.
+
+	° Support for <center> tag
+	For basic support, just a matter of setting the default X value according to our screen resolution and the text width.
+	This will not work however if say, text is in body and they use br after.
+
+	° Support for <br> tag
+	See above, we would have to support all sorts of edge cases.
+
+
+- Netscape order
+An order page from the late 90s. I picked that one as it had no javascript.
+
+- ViolaWWW review
+A simple test with lots of ul/li lists, links and spaces.
+If we can support that then we can pretty much support most of the early pages.

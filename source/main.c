@@ -1,10 +1,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <libgen.h>
+#include <unistd.h>
 #include <libxml/HTMLparser.h>
 
+#ifdef TIDY
 #include <tidy.h>
 #include <tidybuffio.h>
+#endif
 
 #include "library.h"
 
@@ -12,6 +16,7 @@
 //const char ut[] = u8"This is a unicode string : ééé";
 //printf("%s \n", ut);
 
+/* This should probably be moved elsewhere */
 int video_width = 640;
 int video_height = 480;
 int bitdepth = 16;
@@ -19,9 +24,6 @@ int bitdepth = 16;
 int counter = 0;
 int text_color;
 int global_background_color = 0;
-
-/*uint64_t video_url[65000];*/
-
 
 struct text_html
 {
@@ -50,8 +52,6 @@ struct status_toprint_html
 	int number;
 	int used;
 };
-
-
 
 struct text_html text_toprint[500];
 struct image_html img_toprint[500];
@@ -112,7 +112,9 @@ const char img_tags[5][10] =
 	"height"
 };
 
-/* curl write callback, to fill tidy's input buffer...  */
+/* It's in defines for now but we would need some way to put the CSS code under CDATA for easier processing.
+ * (Aka converting HTML to XHTML compliant code, unless somehow we can make it play around it)
+ *  */
 #ifdef TIDY
 uint write_cb(char *in, uint size, uint nmemb, TidyBuffer *out)
 {
@@ -153,7 +155,7 @@ void dumpNode(TidyDoc doc, TidyNode tnod, int indent)
 }
 #endif
 
-void Load_Attribute_tags(unsigned char* att_val, uint32_t size_of_attribute)
+void Load_Attribute_tags(unsigned char* att_val, size_t size_of_attribute)
 {
 	switch(last_set_type)
 	{
@@ -186,6 +188,64 @@ void Load_Attribute_tags(unsigned char* att_val, uint32_t size_of_attribute)
 	}
 }
 
+void Load_Tags_Content(uint32_t tag_to_set, unsigned char* content_val, size_t size_of_content)
+{
+	switch(tag_to_set)
+	{
+		default:
+		
+		break;
+		case HTML_TAG:
+		break;
+		case P_TAG:
+			/* Don't consider the following as text */
+			if ( !(size_of_content == 1 && content_val[0] == 10))
+			{
+				text_toprint[number_of_p_print].text_to_hold = malloc(size_of_content + 1);
+				if (text_toprint[number_of_p_print].text_to_hold)
+				{
+					snprintf(text_toprint[number_of_p_print].text_to_hold, size_of_content + 1, "%s", (char *)content_val);
+					text_toprint[number_of_p_print].type = 0;
+					text_toprint[number_of_p_print].used = 1;
+					#ifdef DEBUG_PARANOID
+					printf("Text to print : %s\n\n", text_toprint[number_of_p_print].text_to_hold);
+					#endif
+
+					status_toprint[number_of_files_print].type = STATUS_TEXT_TYPE;
+					status_toprint[number_of_files_print].number = number_of_p_print;
+
+					#ifdef DEBUG_PARANOID
+					printf("number_of_files_print %d, number_of_p_print %d,TYPE %d\n", number_of_files_print, number_of_p_print, status_toprint[number_of_files_print].type);
+					#endif
+
+					number_of_p_print++;
+					number_of_files_print++;
+				}
+			}
+		break;
+		case TITLE_TAG:
+			/* Reject any title text that is less than 3 characters and start with an empty space */
+			if ( !(size_of_content < 3 && content_val[0] == 10))
+			{
+				if (title_html)
+				{
+					free(title_html);
+					title_html = NULL;
+				}
+				
+				/* Limit the title text size to 16 characters */
+				if (size_of_content > 16)
+				{
+					size_of_content = 16;
+				}
+				title_html = malloc(size_of_content + 1);
+				snprintf(title_html, size_of_content + 1, "%s", (char *)content_val);
+			}
+		break;
+	}
+}
+
+/* Traverse/Go through the XML/HTML trees and process the tags sequentially */
 void traverse_dom_trees(xmlNode * a_node)
 {
 	size_t i;
@@ -229,63 +289,11 @@ void traverse_dom_trees(xmlNode * a_node)
 				printf("node type: Text, node content: %s, content length %ld\n", (char *)cur_node->content, size_content);
 				if (cur_node->parent->properties)
 				{
-					printf("Property %s\n", (char*)cur_node->parent->properties[0].name);
+					printf("Property %s\n", (char*)cur_node->parent->properties[0].name, size_content);
 				}
 				#endif
 				
-				switch(last_set_type)
-				{
-					default:
-					
-					break;
-					case HTML_TAG:
-					break;
-					case P_TAG:
-						/* Don't consider the following as text */
-						if ( !(size_content == 1 && cur_node->content[0] == 10))
-						{
-							text_toprint[number_of_p_print].text_to_hold = malloc(size_content + 1);
-							if (text_toprint[number_of_p_print].text_to_hold)
-							{
-								snprintf(text_toprint[number_of_p_print].text_to_hold, size_content + 1, "%s", (char *)cur_node->content);
-								text_toprint[number_of_p_print].type = 0;
-								text_toprint[number_of_p_print].used = 1;
-								#ifdef DEBUG_PARANOID
-								printf("Text to print : %s\n\n", text_toprint[number_of_p_print].text_to_hold);
-								#endif
-
-								status_toprint[number_of_files_print].type = STATUS_TEXT_TYPE;
-								status_toprint[number_of_files_print].number = number_of_p_print;
-								
-								#ifdef DEBUG_PARANOID
-								printf("number_of_files_print %d, number_of_p_print %d,TYPE %d\n", number_of_files_print, number_of_p_print, status_toprint[number_of_files_print].type);
-								#endif
-								
-								number_of_p_print++;
-								number_of_files_print++;
-							}
-						}
-					break;
-					case TITLE_TAG:
-						/* Reject any title text that is less than 3 characters and start with an empty space */
-						if ( !(size_content < 3 && cur_node->content[0] == 10))
-						{
-							if (title_html)
-							{
-								free(title_html);
-								title_html = NULL;
-							}
-							
-							/* Limit the title text size to 16 characters */
-							if (size_content > 16)
-							{
-								size_content = 16;
-							}
-							title_html = malloc(size_content + 1);
-							snprintf(title_html, size_content + 1, "%s", (char *)cur_node->content);
-						}
-					break;
-				}
+				Load_Tags_Content(last_set_type, cur_node->content, size_content);
 			break;
 			case XML_CDATA_SECTION_NODE:
 				/* For CSS */
@@ -308,6 +316,7 @@ void traverse_dom_trees(xmlNode * a_node)
 			break;
 		}
 		
+		/* Only try to process the attribute if there's any attribute to process */
 		if (cur_node->properties)
 		{
 			uint32_t size_attb;
@@ -330,6 +339,8 @@ void traverse_dom_trees(xmlNode * a_node)
 						#ifdef DEBUG_PARANOID
 						printf("last_set_type %d\n", last_set_type);
 						#endif
+						
+						/* This is where we actually handle the attribute specific tags */
 						Load_Attribute_tags(value, size_attb);
 						
 						/* Break out of loop */
@@ -370,7 +381,9 @@ void Load_All_Images(void)
 		}
 		else
 		{
+			#ifdef DEBUG
 			printf("Loaded Image %s in array %d\n", img_toprint[i].filename, i);
+			#endif
 			img_toprint[i].used = 1;
 		}
 	}
@@ -383,6 +396,7 @@ int main (int argc, char *argv[])
 	int i = 0;
 	int text_y = 0;
 	int quit = 0;
+		
     htmlDocPtr doc;
     xmlNode *roo_element = NULL;
 
@@ -398,8 +412,12 @@ int main (int argc, char *argv[])
 		return 0;
 	}
 	
+	/* Make sure to point to the real directory of the file we try to open */
+	char* path =  dirname(realpath(argv[1], NULL));
+	chdir(path);
+	
+	/* Will be changeable with global styling and CSS */
 	global_background_color = Return_RGB_color(255, 255, 255);
-
 
     /* Macro to check API for match with the DLL we are using */
     LIBXML_TEST_VERSION    
@@ -408,7 +426,7 @@ int main (int argc, char *argv[])
     doc = htmlReadFile(argv[1], NULL, HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING | HTML_PARSE_NONET);
     if (doc == NULL) 
     {
-        fprintf(stderr, "Document not parsed successfully.\n");
+        fprintf(stderr, "HTML file not parsed successfully.\n");
         return 0;
     }
 
@@ -416,7 +434,7 @@ int main (int argc, char *argv[])
 
     if (roo_element == NULL) 
     {
-        fprintf(stderr, "empty document\n");
+        fprintf(stderr, "Empty document..\n");
         xmlFreeDoc(doc);
         return 0;
     }
