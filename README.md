@@ -1,6 +1,8 @@
 Toy Browser OpenDingux
 -----------------------
 
+![Simple Test on my HTML renderer and Firefox 92.0](toy_browser_engine.png)
+
 This is a simple HTML renderer that will target OpenDingux devices.
 
 My goal is to have something that is easily portable (we use SDL 1.2 for now), can process some old HTML files with some styling eventually and maybe use it to port some simple HTML5 games.
