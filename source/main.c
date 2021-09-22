@@ -364,7 +364,9 @@ void Load_All_Images(void)
 {
 	int i;
 	
+	#ifdef DEBUG
 	printf("Images found %d\n", number_of_img_print);
+	#endif
 	
 	for(i=0;i<number_of_img_print;i++)
 	{
