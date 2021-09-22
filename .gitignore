@@ -1,0 +1,6 @@
+m.c
+*.elf
+*.o
+*.gcda
+*.opk
+*.out
