@@ -67,8 +67,12 @@ struct status_toprint_html
 struct text_html text_toprint[500];
 struct image_html img_toprint[500];
 
-#define STATUS_TEXT_TYPE 1
-#define STATUS_IMAGE_TYPE 2
+enum
+{
+	STATUS_TEXT_TYPE = 1,
+	STATUS_IMAGE_TYPE = 2,
+};
+
 struct status_toprint_html status_toprint[2000];
 
 int ishtml_valid = 0;
@@ -83,17 +87,20 @@ int number_of_img_print = 0;
 
 char* title_html;
 
-#define HTML_TAG 0
-#define TITLE_TAG 1
-#define HEADER_TAG 2
-#define META_TAG 3
-#define STYLE_TAG 4
-#define SCRIPT_TAG 5
-#define BODY_TAG 6
-#define HEAD_TAG 7
-#define IMG_TAG 8
-#define VIDEO_TAG 9
-#define P_TAG 10
+enum
+{
+	HTML_TAG = 0,
+	TITLE_TAG = 1,
+	HEADER_TAG = 2,
+	META_TAG = 3,
+	STYLE_TAG = 4,
+	SCRIPT_TAG = 5,
+	BODY_TAG = 6,
+	HEAD_TAG = 7,
+	IMG_TAG = 8,
+	VIDEO_TAG = 9,
+	P_TAG = 10
+};
 
 const char available_tags[11][10] =
 {
@@ -110,11 +117,14 @@ const char available_tags[11][10] =
 	"p"
 };
 
-#define IMG_HREF_TAG 0
-#define IMG_SRC_TAG 1
-#define IMG_ALT_TAG 2
-#define IMG_WIDTH_TAG 3
-#define IMG_HEIGHT_TAG 4
+enum
+{
+	IMG_HREF_TAG = 0,
+	IMG_SRC_TAG = 1,
+	IMG_ALT_TAG = 2,
+	IMG_WIDTH_TAG = 3,
+	IMG_HEIGHT_TAG = 4
+};
 
 const char img_tags[5][10] =
 {
@@ -381,11 +391,9 @@ int Process_CSS_att_tag_to_ID(char* tag, size_t array_size)
 
 void Process_CSS_tag(char* first_tag, char* second_tag, char* value)
 {
-	int i;
+	size_t i;
 	const char* tag_to_process;
-	int action_to_do = 0;
 	char* pch;
-	int valu;
 	
 	/* CSS styling */
 	switch(Process_CSS_tag_to_ID(first_tag, ARRAY_SIZE(css_tags_type_list)))
@@ -433,8 +441,8 @@ void Interpret_CSS(char* val, size_t size_v)
 	string = val;
 	
 	memset(tmp_retain, 0, ARRAY_SIZE(tmp_retain));
-	memset(att_retain, 0, ARRAY_SIZE(att_retain));
-	memset(val_att_retain, 0, ARRAY_SIZE(val_att_retain));
+	memset(att_retain, 0, 32 * 32);
+	memset(val_att_retain, 0, 32 * 32);
 	
 	for(i=0;i<size_v;i++)
 	{
@@ -576,7 +584,7 @@ void traverse_dom_trees(xmlNode * a_node)
 				printf("node type: Text, node content: %s, content length %ld\n", (char *)cur_node->content, last_size_content);
 				if (cur_node->parent->properties)
 				{
-					printf("Property %s\n", (char*)cur_node->parent->properties[0].name, last_size_content);
+					printf("Property %s, %ld\n", (char*)cur_node->parent->properties[0].name, last_size_content);
 				}
 				#endif
 				
