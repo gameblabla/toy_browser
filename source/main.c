@@ -45,6 +45,17 @@ struct image_html
 	Image_data* texture;
 };
 
+struct css_html
+{
+	int status;
+	char* filename;
+	int loaded;
+	int width;
+	int height;
+	int used;
+	int color;
+};
+
 struct status_toprint_html
 {
 	int status;
@@ -61,8 +72,10 @@ struct image_html img_toprint[500];
 struct status_toprint_html status_toprint[2000];
 
 int ishtml_valid = 0;
+
 int last_set_type = 0;
 int attb_set_type = 0;
+size_t last_size_content = 0;
 
 int number_of_files_print = 0;
 int number_of_p_print = 0;
@@ -110,6 +123,93 @@ const char img_tags[5][10] =
 	"alt",
 	"width",
 	"height"
+};
+
+enum
+{
+	CSS_TAG_HTML = 0,
+	CSS_TAG_BODY = 1,
+	CSS_TAG_ROOT = 2,
+	CSS_TAG_HEAD = 3,
+	CSS_TAG_TABLE = 4,
+	CSS_TAG_UL = 5,
+	CSS_TAG_LI = 6,
+	CSS_TAG_CANVAS = 7,
+	CSS_TAG_IMG = 8,
+	CSS_TAG_VIDEO = 9
+};
+
+const char css_tags_type_list[10][10] =
+{
+	"html",
+	"body",
+	":root",
+	"head",
+	"table",
+	"ul",
+	"li",
+	"canvas",
+	"img",
+	"video"
+};
+
+enum
+{
+	CSS_TAG_ATT_BACKGROUND_COLOR = 0,
+	CSS_TAG_ATT_COLOR = 1,
+	CSS_TAG_ATT_WIDTH = 2,
+	CSS_TAG_ATT_HEIGHT = 3,
+	CSS_TAG_ATT_BACKGROUND_IMG = 4,
+	CSS_TAG_ATT_FONT_SIZE = 5,
+	CSS_TAG_ATT_FONT_WEIGHT = 6,
+	CSS_TAG_ATT_MARGIN = 7,
+	CSS_TAG_ATT_PADDING = 8,
+	CSS_TAG_ATT_FLOAT = 9,
+	CSS_TAG_ATT_BORDER = 10,
+};
+
+
+const char css_att_type_list[11][24] =
+{
+	"background-color",
+	"color",
+	"width",
+	"height",
+	"background-img",
+	"font-size",
+	"font-weight",
+	"margin",
+	"padding",
+	"float",
+	"border"
+};
+
+const char css_tags_colors[10][10] =
+{
+	"red",
+	"blue",
+	"yellow",
+	"green",
+	"darkred",
+	"darkblue",
+	"darkyellow",
+	"darkgreen",
+	"orange",
+	"pink"
+};
+
+const unsigned char css_colors_rgb[10 * 3] =
+{
+	255, 0, 0, 	// Red
+	0, 0, 255, 	// Blue
+	255, 255, 0, // Yellow
+	0, 255, 0, 	// Green
+	255, 0, 0, 	// Red
+	0, 0, 255, 	// Blue
+	255, 255, 0, // Yellow
+	0, 255, 0, 	// Green
+	255, 255, 0, // Yellow
+	0, 255, 0 	// Green
 };
 
 /* It's in defines for now but we would need some way to put the CSS code under CDATA for easier processing.
@@ -245,12 +345,199 @@ void Load_Tags_Content(uint32_t tag_to_set, unsigned char* content_val, size_t s
 	}
 }
 
+void Set_Color_CSS(int type, int val)
+{
+	switch(type)
+	{
+		case 0:
+			global_background_color = Return_RGB_color(css_colors_rgb[0+(val*3)], css_colors_rgb[1+(val*3)], css_colors_rgb[2+(val*3)]);
+		break;
+	}
+}
+
+
+/* These 2 functions should be one... TO FIX - gameblabla */
+int Process_CSS_tag_to_ID(char* tag, size_t array_size)
+{
+	size_t i; char* pch;
+	for(i=0;i<array_size;i++)
+	{
+		pch = strstr(tag, css_tags_type_list[i]);
+		if (pch) return i;
+	}
+	return -1;
+}
+
+int Process_CSS_att_tag_to_ID(char* tag, size_t array_size)
+{
+	size_t i; char* pch;
+	for(i=0;i<array_size;i++)
+	{
+		pch = strstr(tag, css_att_type_list[i]);
+		if (pch) return i;
+	}
+	return -1;
+}
+
+void Process_CSS_tag(char* first_tag, char* second_tag, char* value)
+{
+	int i;
+	const char* tag_to_process;
+	int action_to_do = 0;
+	char* pch;
+	int valu;
+	
+	/* CSS styling */
+	switch(Process_CSS_tag_to_ID(first_tag, ARRAY_SIZE(css_tags_type_list)))
+	{
+		case CSS_TAG_HTML:
+		case CSS_TAG_BODY:
+		case CSS_TAG_HEAD:
+			/* Then we look through the supported tags */
+			switch(Process_CSS_att_tag_to_ID(second_tag, ARRAY_SIZE(css_att_type_list)))
+			{
+				/* This makes sure that we only apply the background color for the main tags */
+				case CSS_TAG_ATT_BACKGROUND_COLOR:
+				for(i=0;i<ARRAY_SIZE(css_tags_colors);i++)
+				{
+					tag_to_process = css_tags_colors[i];
+					pch = strstr(value, tag_to_process);
+					if (pch)
+					{
+						Set_Color_CSS(0, i);
+						// Break out of the loop
+						break;
+					}
+				}
+				break;
+				default:
+				
+				break;
+			}
+		break;
+		
+	}
+
+}
+
+void Interpret_CSS(char* val, size_t size_v)
+{
+	size_t i;
+	int CSS_read_status = 0;
+	char* string;
+	char tmp_retain[32];
+	char att_retain[32][32];
+	char val_att_retain[32][32];
+	int go_through = 0;
+	int att_counter = 0;
+	string = val;
+	
+	memset(tmp_retain, 0, ARRAY_SIZE(tmp_retain));
+	memset(att_retain, 0, ARRAY_SIZE(att_retain));
+	memset(val_att_retain, 0, ARRAY_SIZE(val_att_retain));
+	
+	for(i=0;i<size_v;i++)
+	{
+		printf("string[i] %d, %c\n", string[i], string[i]);
+		switch(CSS_read_status)
+		{
+			/* Empty space, trying to find a valid character that isn't a space or */
+			case 0:
+			if (!(string[i] != 10 && string[i] != 9 && string[i] != 32))
+			{
+				go_through = 0;
+				att_counter = 0;
+				memset(tmp_retain, 0, sizeof(tmp_retain));
+				CSS_read_status = 1;
+			}
+			break;
+			case 1:
+				/* If we encounter {, then we can stop searching and begin searching inside */
+				if (string[i] == '{')
+				{
+					printf("Processed tag is %s, now reading tags within it\n", tmp_retain);
+					CSS_read_status = 2;
+				}
+				else
+				{
+					if (string[i] == 10 || string[i] == 9 || string[i] == 32)
+					{
+					}
+					else
+					{
+						tmp_retain[go_through] = string[i];
+						go_through++;
+					}
+				}
+			break;
+			case 2:
+			if (!(string[i] != 10 && string[i] != 9))
+			{
+				go_through = 0;
+				memset(att_retain[att_counter], 0, 32);
+				CSS_read_status = 3;
+			}
+			break;
+			case 3:
+				/* If we encounter {, then we can stop searching and begin searching inside */
+				if (string[i] == '}')
+				{
+					CSS_read_status = 0;
+				}
+				else if (string[i] == ':')
+				{
+					printf("Processed tag within %s is %s, now let's read its value\n", tmp_retain, att_retain[att_counter]);
+					memset(val_att_retain[att_counter], 0, 32);
+					go_through = 0;
+					CSS_read_status = 4;
+				}
+				else
+				{
+					if (string[i] == 10 || string[i] == 9 || string[i] == 32)
+					{
+					}
+					else
+					{
+						att_retain[att_counter][go_through] = string[i];
+						go_through++;
+					}
+				}
+			break;
+			case 4:
+				/* If we encounter {, then we can stop searching and begin searching inside */
+				if (string[i] == '}')
+				{
+					CSS_read_status = 0;
+				}
+				else if (string[i] == ';')
+				{
+					printf("Processed value for tag %s within %s is %s, Done processing, going back to find more values.\n", tmp_retain, att_retain[att_counter], val_att_retain[att_counter]);
+					
+					Process_CSS_tag(tmp_retain, att_retain[att_counter], val_att_retain[att_counter]);
+					att_counter++;
+					CSS_read_status = 2;
+				}
+				else
+				{
+					if (string[i] == 10 || string[i] == 9 || string[i] == 32)
+					{
+					}
+					else
+					{
+						val_att_retain[att_counter][go_through] = string[i];
+						go_through++;
+					}
+				}
+			break;
+		}
+	}
+}
+
 /* Traverse/Go through the XML/HTML trees and process the tags sequentially */
 void traverse_dom_trees(xmlNode * a_node)
 {
 	size_t i;
 	char* pch;
-	size_t size_content = 0;
 	
     xmlNode *cur_node = NULL;
 
@@ -284,22 +571,30 @@ void traverse_dom_trees(xmlNode * a_node)
 			break;
 			case XML_TEXT_NODE:
 				/* Process here text node, It is available in cpStr :TODO: */
-				size_content = strlen((char *)cur_node->content);
+				last_size_content = strlen((char *)cur_node->content);
 				#ifdef DEBUG_PARANOID
-				printf("node type: Text, node content: %s, content length %ld\n", (char *)cur_node->content, size_content);
+				printf("node type: Text, node content: %s, content length %ld\n", (char *)cur_node->content, last_size_content);
 				if (cur_node->parent->properties)
 				{
-					printf("Property %s\n", (char*)cur_node->parent->properties[0].name, size_content);
+					printf("Property %s\n", (char*)cur_node->parent->properties[0].name, last_size_content);
 				}
 				#endif
 				
-				Load_Tags_Content(last_set_type, cur_node->content, size_content);
+				Load_Tags_Content(last_set_type, cur_node->content, last_size_content);
 			break;
 			case XML_CDATA_SECTION_NODE:
 				/* For CSS */
+				last_size_content = strlen((char *)cur_node->content);
 				#ifdef DEBUG
-				printf("node type: CDATA, node content: %s, content length %ld\n", (char *)cur_node->content, size_content);
+				printf("node type: CDATA, node content: %s, content length %ld\n", (char *)cur_node->content, last_size_content);
 				#endif
+				switch(last_set_type)
+				{
+					/* If this is a CSS tag, then let's go through it */
+					case 4:
+						Interpret_CSS((char *)cur_node->content, last_size_content);
+					break;
+				}
 			break;
 			case XML_ATTRIBUTE_NODE:
 				/* Usually unused here (it's used below however) */
@@ -311,7 +606,7 @@ void traverse_dom_trees(xmlNode * a_node)
 			default:
 				#ifdef DEBUG_PARANOID
 				printf("\n\nUNUSED\n\n");
-				printf("node type: DEFAULT, node content: %s, content length %ld\n", (char *)cur_node->content, size_content);
+				printf("node type: DEFAULT, node content: %s, content length %ld\n", (char *)cur_node->content, last_size_content);
 				#endif
 			break;
 		}

@@ -39,6 +39,8 @@ If i ever implement Javascript support, it would be together with the Canvas API
 Mostly for scaling up Canvases and basic styling like setting a color to the text, background...
 I probably would have to implement some support for classes and IDs as well.
 
+* Background-color is supported for now.
+
 - Support links for text
 
 A necesarry component for allowing at least some interactivity, as it was done back in the early to middle 90s.
